@@ -1,18 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="kk">
 <head>
   <meta charset="UTF-8">
   <title>Қой санау</title>
 
-  <!-- PWA үшін -->
-  <link rel="manifest" href="manifest.json">
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js");
-    }
-  </script>
-
-  <!-- TensorFlow.js және COCO-SSD -->
+  <!-- TensorFlow.js + COCO-SSD -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
@@ -32,6 +24,7 @@
       font-size: 22px;
       font-family: sans-serif;
       border-radius: 10px;
+      z-index: 2;
     }
   </style>
 </head>
@@ -52,7 +45,7 @@
     async function start() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }
+          video: { facingMode: "environment" } // артқы камера
         });
         video.srcObject = stream;
 
@@ -76,7 +69,15 @@
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const predictions = await model.detect(video);
 
-      const lineX = canvas.width * 0.5; // ортасында тік сызық
+      const lineX = canvas.width * 0.5; // экранның ортасында вертикаль сызық
+
+      // сызықты қызыл түспен көрсету (қалауыңша алып тастайсың)
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(lineX, 0);
+      ctx.lineTo(lineX, canvas.height);
+      ctx.stroke();
 
       let newTracks = [];
 
@@ -84,7 +85,7 @@
         if (p.class === 'sheep' && p.score > 0.6) {
           const [cx, cy] = getCenter(p.bbox);
 
-          // қойға төртбұрыш салу
+          // қойға жасыл төртбұрыш салу
           ctx.strokeStyle = 'green';
           ctx.lineWidth = 2;
           ctx.strokeRect(p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]);
@@ -96,10 +97,12 @@
           let matched = false;
           for (let t of sheepTracks) {
             if (Math.abs(t.x - cx) < 50 && Math.abs(t.y - cy) < 50) {
+              // солдан оңға өткенде
               if (t.x < lineX && cx >= lineX && !t.counted) {
                 totalSheep++;
                 t.counted = true;
               }
+              // оңнан солға өткенде
               if (t.x > lineX && cx <= lineX && !t.counted) {
                 totalSheep++;
                 t.counted = true;
@@ -119,7 +122,6 @@
       });
 
       sheepTracks = newTracks;
-
       totalDiv.innerText = "Жалпы қой саны: " + totalSheep;
 
       requestAnimationFrame(() => detectFrame(video, model));
