@@ -40,7 +40,6 @@
     const totalDiv = document.getElementById('total');
 
     let totalSheep = 0;
-    let sheepTracks = [];
 
     async function start() {
       try {
@@ -69,9 +68,9 @@
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const predictions = await model.detect(video);
 
-      const lineX = canvas.width * 0.5; // экранның ортасында вертикаль сызық
+      const lineX = canvas.width * 0.5; // ортасында вертикаль сызық
 
-      // сызықты қызыл түспен көрсету (қалауыңша алып тастайсың)
+      // Қызыл сызық (қаласаң алып таста)
       ctx.strokeStyle = "red";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -79,13 +78,11 @@
       ctx.lineTo(lineX, canvas.height);
       ctx.stroke();
 
-      let newTracks = [];
-
       predictions.forEach(p => {
         if (p.class === 'sheep' && p.score > 0.6) {
           const [cx, cy] = getCenter(p.bbox);
 
-          // қойға жасыл төртбұрыш салу
+          // Жасыл төртбұрыш қойға
           ctx.strokeStyle = 'green';
           ctx.lineWidth = 2;
           ctx.strokeRect(p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]);
@@ -93,37 +90,14 @@
           ctx.font = "18px Arial";
           ctx.fillText('Қой', p.bbox[0], p.bbox[1] > 20 ? p.bbox[1] - 5 : 20);
 
-          // Ең жақын трекке сәйкестендіру
-          let matched = false;
-          for (let t of sheepTracks) {
-            if (Math.abs(t.x - cx) < 50 && Math.abs(t.y - cy) < 50) {
-              // солдан оңға өткенде
-              if (t.x < lineX && cx >= lineX && !t.counted) {
-                totalSheep++;
-                t.counted = true;
-              }
-              // оңнан солға өткенде
-              if (t.x > lineX && cx <= lineX && !t.counted) {
-                totalSheep++;
-                t.counted = true;
-              }
-              t.x = cx;
-              t.y = cy;
-              newTracks.push(t);
-              matched = true;
-              break;
-            }
-          }
-
-          if (!matched) {
-            newTracks.push({ x: cx, y: cy, counted: false });
+          // Егер ортасы сызықтан жақын өтсе — сана
+          if (Math.abs(cx - lineX) < 10) {
+            totalSheep++;
           }
         }
       });
 
-      sheepTracks = newTracks;
       totalDiv.innerText = "Жалпы қой саны: " + totalSheep;
-
       requestAnimationFrame(() => detectFrame(video, model));
     }
 
