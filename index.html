@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8">
+  <title>Қой санау</title>
+
+  <!-- PWA үшін -->
+  <link rel="manifest" href="manifest.json">
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+  </script>
+
+  <!-- TensorFlow.js және COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <style>
+    body { margin: 0; overflow: hidden; }
+    video, canvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+    #total {
+      position: absolute;
+      top: 10px; left: 10px;
+      background: rgba(255,255,255,0.8);
+      padding: 6px 12px;
+      font-size: 22px;
+      font-family: sans-serif;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+  <div id="total">Жалпы қой саны: 0</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const totalDiv = document.getElementById('total');
+
+    let totalSheep = 0;
+    let sheepTracks = [];
+
+    async function start() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+        video.srcObject = stream;
+
+        video.addEventListener('loadedmetadata', () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        });
+
+        const model = await cocoSsd.load();
+        detectFrame(video, model);
+      } catch (err) {
+        alert("Камера ашылмады: " + err);
+      }
+    }
+
+    function getCenter(bbox) {
+      return [bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2];
+    }
+
+    async function detectFrame(video, model) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const predictions = await model.detect(video);
+
+      const lineX = canvas.width * 0.5; // ортасында тік сызық
+
+      let newTracks = [];
+
+      predictions.forEach(p => {
+        if (p.class === 'sheep' && p.score > 0.6) {
+          const [cx, cy] = getCenter(p.bbox);
+
+          // қойға төртбұрыш салу
+          ctx.strokeStyle = 'green';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]);
+          ctx.fillStyle = 'green';
+          ctx.font = "18px Arial";
+          ctx.fillText('Қой', p.bbox[0], p.bbox[1] > 20 ? p.bbox[1] - 5 : 20);
+
+          // Ең жақын трекке сәйкестендіру
+          let matched = false;
+          for (let t of sheepTracks) {
+            if (Math.abs(t.x - cx) < 50 && Math.abs(t.y - cy) < 50) {
+              if (t.x < lineX && cx >= lineX && !t.counted) {
+                totalSheep++;
+                t.counted = true;
+              }
+              if (t.x > lineX && cx <= lineX && !t.counted) {
+                totalSheep++;
+                t.counted = true;
+              }
+              t.x = cx;
+              t.y = cy;
+              newTracks.push(t);
+              matched = true;
+              break;
+            }
+          }
+
+          if (!matched) {
+            newTracks.push({ x: cx, y: cy, counted: false });
+          }
+        }
+      });
+
+      sheepTracks = newTracks;
+
+      totalDiv.innerText = "Жалпы қой саны: " + totalSheep;
+
+      requestAnimationFrame(() => detectFrame(video, model));
+    }
+
+    start();
+  </script>
+</body>
+</html>
