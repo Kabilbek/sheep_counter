@@ -1,6 +1,6 @@
 ﻿{
-  "name": "?ой санау",
-  "short_name": "?ой",
+  "name": "Қой санау",
+  "short_name": "Қой",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#000000",
@@ -10,3 +10,4 @@
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
+
